@@ -177,10 +177,23 @@ select.ipt{appearance:auto}
   <div id="pDisc" class="hidden">
     <div class="card">
       <div style="font-size:13px;color:var(--og);margin-bottom:8px">🏷️ 优惠/修正</div>
-      <div style="display:flex;gap:5px;margin-bottom:10px;flex-wrap:wrap">
-        <input class="ipt" id="dDesc" placeholder="说明（满减、赠品等）" style="flex:2;min-width:100px" onkeydown="if(event.key==='Enter')addDisc()">
-        <input class="ipt" id="dAmt" type="number" placeholder="金额" style="width:68px;flex:none" onkeydown="if(event.key==='Enter')addDisc()">
+      <div style="display:flex;gap:5px;margin-bottom:6px;flex-wrap:wrap">
+        <select class="ipt" id="dType" style="flex:1;min-width:100px" onchange="$('dCustom').classList.toggle('hidden',$('dType').value!=='__other')">
+          <option value="满减优惠">满减优惠</option>
+          <option value="赠品成本">赠品成本</option>
+          <option value="组合优惠">组合优惠</option>
+          <option value="老客户优惠">老客户优惠</option>
+          <option value="尾单折扣">尾单折扣</option>
+          <option value="损坏/丢失">损坏/丢失</option>
+          <option value="亏损处理">亏损处理</option>
+          <option value="__other">其他（自定义）</option>
+        </select>
+        <input class="ipt" id="dAmt" type="number" placeholder="金额" style="width:72px;flex:none" onkeydown="if(event.key==='Enter')addDisc()">
         <button class="btn og" onclick="addDisc()">添加</button>
+      </div>
+      <div style="display:flex;gap:5px;margin-bottom:10px">
+        <input class="ipt hidden" id="dCustom" placeholder="自定义说明" style="flex:1" onkeydown="if(event.key==='Enter')addDisc()">
+        <input class="ipt" id="dNote" placeholder="备注（选填）" style="flex:1">
       </div>
       <div id="discList"></div>
     </div>
@@ -330,18 +343,29 @@ function renderCartUI(){
 }
 function checkout(){
   const entries=Object.entries(cart);if(!cCount())return;
-  snap();const now=new Date().toISOString();let total=0;const names=[];
-  entries.forEach(([id,qty])=>{const p=D.products.find(x=>x.id===Number(id));if(!p)return;p.stock-=qty;p.sold+=qty;total+=p.price*qty;names.push(p.name+'×'+qty);for(let i=0;i<qty;i++)D.logs.unshift({time:now,name:p.name,price:p.price,action:'sell'})});
-  cart={};save();renderProducts();renderLogs();renderCartUI();updateStats();
-  toast('结算 ✓ '+names.join('、')+' 共¥'+total,true);
+  snap();const now=new Date().toISOString();let total=0;const items=[];
+  entries.forEach(([id,qty])=>{const p=D.products.find(x=>x.id===Number(id));if(!p)return;p.stock-=qty;p.sold+=qty;total+=p.price*qty;items.push({name:p.name,price:p.price,qty})});
+  D.logs.unshift({time:now,action:'cart',items,total});
+  cart={};cartOn=false;
+  $('cartBtn').classList.remove('on');$('cartBtn').textContent='🛒 购物车模式';
+  $('cpanel').classList.remove('open');
+  document.querySelector('.app').style.paddingBottom='100px';
+  save();renderProducts();renderLogs();updateStats();
+  toast('结算 ✓ '+items.map(i=>i.name+'×'+i.qty).join('、')+' 共¥'+total,true);
 }
 
 // ==================== DISCOUNTS ====================
 function addDisc(){
-  const desc=$('dDesc').value.trim(),amt=parseFloat($('dAmt').value);
-  if(!desc||isNaN(amt)){toast('请填写说明和金额');return}
-  D.discounts.unshift({id:Date.now(),desc,amount:amt,time:new Date().toISOString()});
-  save();$('dDesc').value='';$('dAmt').value='';renderDisc();updateStats();toast('已添加优惠「'+desc+'」');
+  const type=$('dType').value;
+  const desc=type==='__other'?$('dCustom').value.trim():type;
+  const note=$('dNote').value.trim();
+  const amt=parseFloat($('dAmt').value);
+  if(!desc){toast('请选择或填写优惠类型');return}
+  if(isNaN(amt)||amt<=0){toast('请填写金额');return}
+  const fullDesc=note?desc+'（'+note+'）':desc;
+  D.discounts.unshift({id:Date.now(),desc:fullDesc,amount:amt,time:new Date().toISOString()});
+  save();$('dAmt').value='';$('dNote').value='';$('dCustom').value='';
+  renderDisc();updateStats();toast('已添加「'+fullDesc+'」');
 }
 function rmDisc(id){D.discounts=D.discounts.filter(x=>x.id!==id);save();renderDisc();updateStats()}
 function clearLogs(){if(confirm('清空所有售出记录？')){D.logs=[];save();renderLogs();toast('已清空')}}
@@ -385,8 +409,23 @@ function renderLogs(){
   $('logCnt').textContent=D.logs.length;
   if(!D.logs.length){$('logList').innerHTML='<div class="empty">暂无记录</div>';return}
   $('logList').innerHTML=D.logs.map(l=>{
-    const isSell=l.action==='sell';
-    return '<div class="li"><span style="color:var(--tx2);min-width:54px;font-size:11px">'+fmtT(l.time)+'</span><span style="flex:1">'+esc(l.name)+'</span><span style="font-weight:700;min-width:24px;text-align:center;color:'+(isSell?'var(--gn)':'var(--rd)')+'">'+(isSell?'+1':'-1')+'</span><span style="color:var(--yw);min-width:50px;text-align:right;font-size:11px">'+(isSell?'+':'-')+'¥'+l.price+'</span></div>';
+    if(l.action==='cart'){
+      // 购物车合并记录
+      const cnt=l.items.reduce((s,i)=>s+i.qty,0);
+      let h='<div style="background:var(--bg);border-radius:8px;padding:8px 10px;margin-bottom:4px;border-left:3px solid var(--ac)">';
+      h+='<div style="display:flex;align-items:center;margin-bottom:4px"><span style="color:var(--tx2);font-size:11px;min-width:54px">'+fmtT(l.time)+'</span><span style="font-size:12px;font-weight:600;color:var(--ac);margin-left:4px">🛒 购物车结算</span><span style="margin-left:auto;color:var(--gn);font-weight:700;font-size:13px">+¥'+l.total+'</span></div>';
+      h+='<div style="padding-left:58px">';
+      l.items.forEach(i=>{
+        h+='<div style="display:flex;align-items:center;font-size:11px;color:var(--tx2);padding:1px 0"><span style="flex:1">'+esc(i.name)+'</span><span style="margin-right:8px">×'+i.qty+'</span><span style="color:var(--yw);min-width:45px;text-align:right">¥'+(i.price*i.qty)+'</span></div>';
+      });
+      h+='<div style="font-size:10px;color:var(--tx2);margin-top:2px">共 '+cnt+' 件</div>';
+      h+='</div></div>';
+      return h;
+    } else {
+      // 单笔售出/退货
+      const isSell=l.action==='sell';
+      return '<div class="li"><span style="color:var(--tx2);min-width:54px;font-size:11px">'+fmtT(l.time)+'</span><span style="flex:1">'+esc(l.name)+'</span><span style="font-weight:700;min-width:24px;text-align:center;color:'+(isSell?'var(--gn)':'var(--rd)')+'">'+(isSell?'+1':'-1')+'</span><span style="color:var(--yw);min-width:50px;text-align:right;font-size:11px">'+(isSell?'+':'-')+'¥'+l.price+'</span></div>';
+    }
   }).join('');
 }
 
@@ -399,7 +438,11 @@ function renderDisc(){
 
 function updateStats(){
   const sold=D.products.reduce((s,p)=>s+p.sold,0);
-  const gross=D.logs.reduce((s,l)=>s+(l.action==='sell'?l.price:-l.price),0);
+  const gross=D.logs.reduce((s,l)=>{
+    if(l.action==='cart')return s+l.total;
+    if(l.action==='sell')return s+l.price;
+    return s-l.price;
+  },0);
   const disc=D.discounts.reduce((s,d)=>s+d.amount,0);
   $('sSold').textContent=sold;
   $('sDisc').textContent='-¥'+disc;
@@ -504,10 +547,23 @@ function exportReport(){
 
   // Sheet 2: 售出明细
   if(D.logs.length){
-    const logD=D.logs.map(l=>{const t=new Date(l.time);return{'日期':t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0'),'时间':fmtT(l.time),'商品名称':l.name,'类型':l.action==='sell'?'售出':'退货','金额':l.action==='sell'?l.price:-l.price}});
-    logD.push({'日期':'','时间':'','商品名称':'','类型':'合计','金额':D.logs.reduce((s,l)=>s+(l.action==='sell'?l.price:-l.price),0)});
+    const logD=[];let logTotal=0;
+    D.logs.forEach(l=>{
+      const t=new Date(l.time);
+      const ds=t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');
+      if(l.action==='cart'){
+        l.items.forEach(i=>{
+          logD.push({'日期':ds,'时间':fmtT(l.time),'商品名称':i.name,'数量':i.qty,'类型':'购物车结算','金额':i.price*i.qty});
+        });
+        logTotal+=l.total;
+      }else{
+        logD.push({'日期':ds,'时间':fmtT(l.time),'商品名称':l.name,'数量':1,'类型':l.action==='sell'?'售出':'退货','金额':l.action==='sell'?l.price:-l.price});
+        logTotal+=(l.action==='sell'?l.price:-l.price);
+      }
+    });
+    logD.push({'日期':'','时间':'','商品名称':'','数量':'','类型':'合计','金额':logTotal});
     const ws2=XLSX.utils.json_to_sheet(logD);
-    ws2['!cols']=[{wch:12},{wch:10},{wch:20},{wch:8},{wch:10}];
+    ws2['!cols']=[{wch:12},{wch:10},{wch:20},{wch:6},{wch:10},{wch:10}];
     XLSX.utils.book_append_sheet(wb,ws2,'售出明细');
   }
 
