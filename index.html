@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1">
+<title>展会收银台</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>if(typeof XLSX==='undefined'){document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"><\/script>')}</script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap');
+:root{
+  --bg:#0f1118;--sf:#1a1d2b;--sf2:#161929;--bd:#2e3350;
+  --tx:#e8eaf0;--tx2:#8b90a8;
+  --ac:#6c8cff;--acd:rgba(108,140,255,.12);
+  --gn:#4ade80;--gnd:rgba(74,222,128,.12);
+  --rd:#f87171;--rdd:rgba(248,113,113,.12);
+  --og:#fb923c;--ogd:rgba(251,146,60,.12);
+  --yw:#facc15;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Noto Sans SC',system-ui,sans-serif;background:var(--bg);color:var(--tx);min-height:100vh;-webkit-tap-highlight-color:transparent}
+input,button,select{font-family:inherit}
+.app{max-width:640px;margin:0 auto;padding:12px 14px 100px}
+
+/* header */
+.hdr{display:flex;align-items:center;justify-content:space-between;padding-bottom:10px;border-bottom:1px solid var(--bd);margin-bottom:12px}
+.hdr h1{font-size:17px;font-weight:700;letter-spacing:2px;background:linear-gradient(135deg,var(--ac),#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hdr-acts{display:flex;gap:5px;flex-wrap:wrap}
+
+/* stats */
+.stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:12px}
+.st{text-align:center;border-radius:10px;padding:8px 4px;background:var(--sf);border:1px solid var(--bd)}
+.st .lb{font-size:10px;color:var(--tx2)}.st .vl{font-size:19px;font-weight:700}
+
+/* tabs */
+.tabs{display:flex;gap:3px;margin-bottom:12px;padding:3px;border-radius:10px;background:var(--sf);border:1px solid var(--bd)}
+.tab{flex:1;padding:7px 2px;text-align:center;font-size:13px;border-radius:8px;border:none;cursor:pointer;background:transparent;color:var(--tx2);font-weight:400;transition:.15s}
+.tab.on{background:var(--ac);color:#fff;font-weight:500}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;gap:4px;padding:7px 12px;border-radius:8px;border:1px solid var(--bd);background:var(--sf);color:var(--tx2);font-size:12px;cursor:pointer;white-space:nowrap}
+.btn:active{transform:scale(.96)}
+.btn.pri{background:var(--ac);border-color:var(--ac);color:#fff;font-weight:500}
+.btn.og{background:var(--og);border-color:var(--og);color:#fff;font-weight:500}
+.btn.gn{background:var(--gn);border-color:var(--gn);color:#000;font-weight:500}
+.btn.sm{padding:4px 8px;font-size:11px}
+.btn.dn{border-color:rgba(248,113,113,.3);color:var(--rd)}
+
+/* input */
+.ipt{padding:7px 10px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx);font-size:13px;outline:none;width:100%}
+.ipt:focus{border-color:var(--ac)}
+select.ipt{appearance:auto}
+
+/* card */
+.card{background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:12px 14px;margin-bottom:8px}
+.card.low{border-color:rgba(251,146,60,.35)}
+.card.out{border-color:rgba(248,113,113,.3)}
+
+/* sell buttons */
+.sb{width:38px;height:38px;display:flex;align-items:center;justify-content:center;border-radius:10px;font-size:20px;font-weight:500;cursor:pointer;border:none}
+.sb:active{transform:scale(.9)}
+.sb.pl{border:1px solid var(--gn);background:var(--gnd);color:var(--gn)}
+.sb.mi{border:1px solid var(--rd);background:var(--rdd);color:var(--rd)}
+.sb.dis{opacity:.3;pointer-events:none}
+
+/* tags */
+.tag{font-size:10px;padding:2px 6px;border-radius:4px;margin-right:6px}
+.tag.out{background:rgba(248,113,113,.15);color:var(--rd)}
+.tag.low{background:rgba(251,146,60,.15);color:var(--og)}
+
+/* group header */
+.gh{display:flex;align-items:center;padding:9px 12px;border-radius:10px;cursor:pointer;user-select:none;background:var(--sf2);border:1px solid var(--bd);margin-bottom:6px}
+.gh.cl{margin-bottom:0}
+.gh .arr{font-size:11px;margin-right:6px;transition:transform .2s;display:inline-block}
+.gh.cl .arr{transform:rotate(-90deg)}
+
+/* mode bar */
+.mbar{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.mbtn{padding:9px 12px;border-radius:10px;border:1px solid var(--bd);background:var(--sf);color:var(--tx2);font-size:13px;cursor:pointer;font-weight:500}
+.mbtn.on{border-color:var(--ac);background:var(--acd);color:var(--ac)}
+
+/* log items */
+.li{display:flex;align-items:center;padding:6px 8px;background:var(--bg);border-radius:7px;font-size:12px;gap:6px;margin-bottom:3px}
+
+/* delete btn */
+.xb{width:26px;height:26px;display:flex;align-items:center;justify-content:center;border:none;background:none;color:#555;cursor:pointer;font-size:13px;border-radius:6px}
+.xb:hover{background:var(--rdd);color:var(--rd)}
+
+/* cart panel */
+.cpanel{position:fixed;bottom:0;left:0;right:0;background:var(--sf);border-top:2px solid var(--ac);padding:12px 16px 20px;z-index:50;box-shadow:0 -8px 30px rgba(0,0,0,.5);transform:translateY(100%);transition:transform .25s}
+.cpanel.open{transform:translateY(0)}
+.ckbtn{padding:10px 28px;border-radius:10px;background:linear-gradient(135deg,#4ade80,#22d3ee);color:#000;border:none;cursor:pointer;font-size:15px;font-weight:700;letter-spacing:1px}
+.ckbtn:active{transform:scale(.96)}
+
+/* modal */
+.modal-bg{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.75);z-index:300;display:flex;align-items:center;justify-content:center;padding:16px}
+.modal{background:var(--sf);border:1px solid var(--bd);border-radius:14px;padding:18px;width:100%;max-width:460px;max-height:80vh;overflow-y:auto}
+.modal h3{font-size:15px;margin-bottom:10px}
+.ptable{width:100%;border-collapse:collapse;font-size:12px;margin:8px 0}
+.ptable th{background:var(--sf2);padding:6px 8px;text-align:left;color:var(--tx2);font-weight:500;border-bottom:1px solid var(--bd)}
+.ptable td{padding:5px 8px;border-bottom:1px solid rgba(46,51,80,.4)}
+.ptable tr:nth-child(even){background:rgba(0,0,0,.12)}
+
+/* toast */
+.toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--sf);border:1px solid var(--gn);color:var(--tx);padding:8px 16px;border-radius:10px;font-size:13px;font-weight:500;z-index:400;transition:all .3s;pointer-events:none;display:flex;align-items:center;gap:10px;box-shadow:0 4px 20px rgba(0,0,0,.5);max-width:90vw}
+.toast.show{transform:translateX(-50%) translateY(0);pointer-events:auto}
+.ubtn{padding:3px 10px;border-radius:6px;background:rgba(108,140,255,.2);color:var(--ac);border:1px solid rgba(108,140,255,.3);cursor:pointer;font-size:12px;font-weight:600}
+
+.empty{text-align:center;padding:24px;color:var(--tx2);font-size:13px}
+.hidden{display:none}
+
+@media(max-width:400px){.st .vl{font-size:16px}.hdr-acts{gap:3px}.btn.sm{padding:3px 6px;font-size:10px}}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <!-- HEADER -->
+  <div class="hdr">
+    <h1>展会收银台</h1>
+    <div class="hdr-acts">
+      <button class="btn sm" onclick="$('xlsxFile').click()">📊 导入商品</button>
+      <button class="btn sm gn" onclick="exportReport()">📈 导出报表</button>
+      <button class="btn sm dn" onclick="resetAll()">重置</button>
+      <input type="file" id="xlsxFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="importXlsx(event)">
+    </div>
+  </div>
+
+  <!-- STATS: 售出 → 优惠 → 总营收 -->
+  <div class="stats">
+    <div class="st"><div class="lb">售出</div><div class="vl" id="sSold" style="color:var(--ac)">0</div></div>
+    <div class="st"><div class="lb">优惠</div><div class="vl" id="sDisc" style="color:var(--og)">-¥0</div></div>
+    <div class="st"><div class="lb">总营收</div><div class="vl" id="sRev" style="color:var(--gn)">¥0</div></div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs" id="tabBar">
+    <button class="tab on" data-t="inv" onclick="switchTab('inv')">📦 库存</button>
+    <button class="tab" data-t="log" onclick="switchTab('log')">📋 记录</button>
+    <button class="tab" data-t="disc" onclick="switchTab('disc')">🏷️ 优惠</button>
+  </div>
+
+  <!-- INVENTORY -->
+  <div id="pInv">
+    <div class="mbar">
+      <button class="mbtn" id="cartBtn" onclick="toggleCart()">🛒 购物车模式</button>
+      <button class="mbtn" id="addBtn" onclick="toggleAdd()">➕ 添加</button>
+    </div>
+    <div id="addForm" class="hidden" style="background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:12px;margin-bottom:10px">
+      <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px">
+        <input class="ipt" id="nName" placeholder="商品名称" style="flex:2;min-width:90px" onkeydown="if(event.key==='Enter')addProduct()">
+        <input class="ipt" id="nPrice" type="number" placeholder="单价" style="width:68px;flex:none" onkeydown="if(event.key==='Enter')addProduct()">
+        <input class="ipt" id="nStock" type="number" placeholder="库存" style="width:56px;flex:none" onkeydown="if(event.key==='Enter')addProduct()">
+      </div>
+      <div style="display:flex;gap:5px;align-items:center">
+        <select class="ipt" id="nGroup" style="flex:1" onchange="$('nCG').classList.toggle('hidden',this.value!=='__custom')">
+          <option value="">无分组</option>
+        </select>
+        <input class="ipt hidden" id="nCG" placeholder="分组名称" style="flex:1">
+        <button class="btn pri" onclick="addProduct()">添加</button>
+      </div>
+    </div>
+    <div id="pList"></div>
+  </div>
+
+  <!-- LOG -->
+  <div id="pLog" class="hidden">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <span style="font-size:13px;color:var(--tx2)">售出记录 (<span id="logCnt">0</span>)</span>
+        <button class="btn sm dn" onclick="clearLogs()">清空</button>
+      </div>
+      <div id="logList" style="max-height:500px;overflow-y:auto"></div>
+    </div>
+  </div>
+
+  <!-- DISCOUNT -->
+  <div id="pDisc" class="hidden">
+    <div class="card">
+      <div style="font-size:13px;color:var(--og);margin-bottom:8px">🏷️ 优惠/修正</div>
+      <div style="display:flex;gap:5px;margin-bottom:10px;flex-wrap:wrap">
+        <input class="ipt" id="dDesc" placeholder="说明（满减、赠品等）" style="flex:2;min-width:100px" onkeydown="if(event.key==='Enter')addDisc()">
+        <input class="ipt" id="dAmt" type="number" placeholder="金额" style="width:68px;flex:none" onkeydown="if(event.key==='Enter')addDisc()">
+        <button class="btn og" onclick="addDisc()">添加</button>
+      </div>
+      <div id="discList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- CART PANEL -->
+<div class="cpanel" id="cpanel">
+  <div style="max-width:640px;margin:0 auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <span style="font-size:14px;font-weight:600;color:var(--ac)">🛒 购物车</span>
+      <button class="btn sm" onclick="cancelCart()">取消</button>
+    </div>
+    <div id="cartItems" style="max-height:120px;overflow-y:auto;margin-bottom:8px"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <span id="cartTotal" style="font-size:16px;font-weight:700;color:var(--gn)">合计 ¥0</span>
+      <button class="ckbtn" id="ckBtn" onclick="checkout()">结算 (0件)</button>
+    </div>
+  </div>
+</div>
+
+<!-- XLSX PREVIEW MODAL -->
+<div class="modal-bg hidden" id="xlsxModal" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <h3>📊 导入商品预览</h3>
+    <div id="xlsxPreview"></div>
+    <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end">
+      <button class="btn" onclick="closeModal()">取消</button>
+      <button class="btn pri" onclick="confirmImport()">确认导入</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast">
+  <span id="toastMsg"></span>
+  <button class="ubtn hidden" id="toastUndo" onclick="doUndo()">撤销</button>
+</div>
+
+<script>
+// ==================== CORE ====================
+const SK='conv_cashier_v8';
+let D={products:[],logs:[],discounts:[],groups:[]};
+let cartOn=false, cart={}, collapsed={}, showingAdd=false;
+let undoSnap=null, toastTmr=null, pendingXlsx=null;
+
+const $=id=>document.getElementById(id);
+function load(){
+  try{
+    const s=localStorage.getItem(SK);
+    if(s){D=JSON.parse(s);if(!D.groups)D.groups=[];
+      D.products.forEach((p,i)=>{if(!p.id)p.id=Date.now()+i;if(p.group===undefined)p.group=''})
+    }
+  }catch(e){}
+}
+function save(){try{localStorage.setItem(SK,JSON.stringify(D))}catch(e){}}
+function snap(){undoSnap=JSON.stringify(D)}
+function doUndo(){if(!undoSnap)return;D=JSON.parse(undoSnap);undoSnap=null;save();renderAll();$('toast').classList.remove('show')}
+function toast(msg,canUndo){
+  $('toastMsg').textContent=msg;
+  const u=$('toastUndo');canUndo?u.classList.remove('hidden'):u.classList.add('hidden');
+  const t=$('toast');t.style.bottom=cartOn?'200px':'30px';t.classList.add('show');
+  clearTimeout(toastTmr);toastTmr=setTimeout(()=>{t.classList.remove('show');undoSnap=null},3500);
+}
+function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
+function fmtT(iso){const t=new Date(iso);return[t.getHours(),t.getMinutes(),t.getSeconds()].map(v=>String(v).padStart(2,'0')).join(':')}
+function fmtTs(iso){const t=new Date(iso);return[t.getHours(),t.getMinutes()].map(v=>String(v).padStart(2,'0')).join(':')}
+
+// ==================== TABS ====================
+function switchTab(t){
+  ['inv','log','disc'].forEach(k=>$('p'+k.charAt(0).toUpperCase()+k.slice(1)).classList.toggle('hidden',k!==t));
+  document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
+}
+
+// ==================== PRODUCTS ====================
+function refreshGroups(){
+  const sel=$('nGroup'),val=sel.value;
+  sel.innerHTML='<option value="">无分组</option>';
+  (D.groups||[]).forEach(g=>{sel.innerHTML+=`<option value="${esc(g)}">${esc(g)}</option>`});
+  sel.innerHTML+='<option value="__custom">+ 新建分组</option>';
+  sel.value=val;
+}
+function toggleAdd(){showingAdd=!showingAdd;$('addForm').classList.toggle('hidden',!showingAdd);$('addBtn').classList.toggle('on',showingAdd);if(showingAdd)refreshGroups()}
+
+function addProduct(){
+  const name=$('nName').value.trim(),price=parseFloat($('nPrice').value),stock=parseInt($('nStock').value)||0;
+  if(!name||isNaN(price)){toast('请填写名称和价格');return}
+  const gv=$('nGroup').value,group=gv==='__custom'?($('nCG').value.trim()||''):gv;
+  D.products.push({id:Date.now(),name,price,stock,sold:0,group});
+  if(group&&!D.groups.includes(group))D.groups.push(group);
+  save();$('nName').value='';$('nPrice').value='';$('nStock').value='';
+  refreshGroups();renderProducts();updateStats();toast('已添加「'+name+'」');
+}
+function delProduct(id){const p=D.products.find(x=>x.id===id);if(!p||!confirm('删除「'+p.name+'」？'))return;D.products=D.products.filter(x=>x.id!==id);save();renderProducts();updateStats()}
+function updStock(id,el){D.products=D.products.map(p=>p.id===id?Object.assign({},p,{stock:parseInt(el.value)||0}):p);save();updateStats()}
+
+// ==================== SELL ====================
+function sell(id){
+  const p=D.products.find(x=>x.id===id);if(!p||p.stock<=0){toast('库存不足！');return}
+  snap();p.stock--;p.sold++;
+  D.logs.unshift({time:new Date().toISOString(),name:p.name,price:p.price,action:'sell'});
+  save();renderProducts();renderLogs();updateStats();toast('售出 ✓ '+p.name+' ¥'+p.price,true);
+}
+function unsell(id){
+  const p=D.products.find(x=>x.id===id);if(!p||p.sold<=0){toast('没有可退的记录');return}
+  snap();p.stock++;p.sold--;
+  D.logs.unshift({time:new Date().toISOString(),name:p.name,price:p.price,action:'return'});
+  save();renderProducts();renderLogs();updateStats();toast('退货 ✗ '+p.name,true);
+}
+
+// ==================== CART ====================
+function toggleCart(){
+  cartOn=!cartOn;if(!cartOn)cart={};
+  $('cartBtn').classList.toggle('on',cartOn);$('cpanel').classList.toggle('open',cartOn);
+  document.querySelector('.app').style.paddingBottom=cartOn?'260px':'100px';
+  renderProducts();renderCartUI();
+}
+function cancelCart(){cartOn=false;cart={};$('cartBtn').classList.remove('on');$('cpanel').classList.remove('open');document.querySelector('.app').style.paddingBottom='100px';renderProducts()}
+function addToCart(id){
+  const p=D.products.find(x=>x.id===id);if(!p)return;
+  if((cart[id]||0)>=p.stock){toast('库存不足！');return}
+  cart[id]=(cart[id]||0)+1;
+  if(!cartOn)toggleCart();else{renderProducts();renderCartUI()}
+}
+function rmFromCart(id){if(cart[id]>1)cart[id]--;else delete cart[id];renderProducts();renderCartUI()}
+function cCount(){return Object.values(cart).reduce((s,q)=>s+q,0)}
+function cTotal(){return Object.entries(cart).reduce((s,[id,q])=>{const p=D.products.find(x=>x.id===Number(id));return s+(p?p.price*q:0)},0)}
+function renderCartUI(){
+  const entries=Object.entries(cart),cc=cCount(),ct=cTotal();
+  $('cartBtn').textContent=cartOn?'🛒 购物车 ('+cc+')':'🛒 购物车模式';
+  if(!entries.length){$('cartItems').innerHTML='<div style="text-align:center;padding:10px;color:var(--tx2);font-size:12px">点击商品的 + 添加到购物车</div>'}
+  else{$('cartItems').innerHTML=entries.map(([id,qty])=>{const p=D.products.find(x=>x.id===Number(id));if(!p)return'';return'<div style="display:flex;align-items:center;font-size:13px;padding:4px 0;gap:6px"><span style="flex:1">'+esc(p.name)+'</span><span style="color:var(--tx2)">×'+qty+'</span><span style="color:var(--yw);font-weight:600;min-width:50px;text-align:right">¥'+(p.price*qty)+'</span></div>'}).join('')}
+  $('cartTotal').textContent='合计 ¥'+ct;$('ckBtn').textContent='结算 ('+cc+'件)';
+}
+function checkout(){
+  const entries=Object.entries(cart);if(!cCount())return;
+  snap();const now=new Date().toISOString();let total=0;const names=[];
+  entries.forEach(([id,qty])=>{const p=D.products.find(x=>x.id===Number(id));if(!p)return;p.stock-=qty;p.sold+=qty;total+=p.price*qty;names.push(p.name+'×'+qty);for(let i=0;i<qty;i++)D.logs.unshift({time:now,name:p.name,price:p.price,action:'sell'})});
+  cart={};save();renderProducts();renderLogs();renderCartUI();updateStats();
+  toast('结算 ✓ '+names.join('、')+' 共¥'+total,true);
+}
+
+// ==================== DISCOUNTS ====================
+function addDisc(){
+  const desc=$('dDesc').value.trim(),amt=parseFloat($('dAmt').value);
+  if(!desc||isNaN(amt)){toast('请填写说明和金额');return}
+  D.discounts.unshift({id:Date.now(),desc,amount:amt,time:new Date().toISOString()});
+  save();$('dDesc').value='';$('dAmt').value='';renderDisc();updateStats();toast('已添加优惠「'+desc+'」');
+}
+function rmDisc(id){D.discounts=D.discounts.filter(x=>x.id!==id);save();renderDisc();updateStats()}
+function clearLogs(){if(confirm('清空所有售出记录？')){D.logs=[];save();renderLogs();toast('已清空')}}
+function resetAll(){if(confirm('⚠️ 清空所有数据？不可恢复！')){D={products:[],logs:[],discounts:[],groups:[]};cart={};save();renderAll();toast('已重置')}}
+
+// ==================== RENDER ====================
+function renderProducts(){
+  const el=$('pList');
+  if(!D.products.length){el.innerHTML='<div class="empty">暂无商品<br><span style="font-size:12px">点击「添加」或「导入商品」</span></div>';return}
+  const grouped={},ungrouped=[];
+  D.products.forEach(p=>{if(p.group){if(!grouped[p.group])grouped[p.group]=[];grouped[p.group].push(p)}else ungrouped.push(p)});
+  let h='';
+  Object.entries(grouped).forEach(([g,items])=>{
+    const cl=collapsed[g],stk=items.reduce((s,p)=>s+p.stock,0),sld=items.reduce((s,p)=>s+p.sold,0),hasLow=items.some(p=>p.stock>0&&p.stock<=3);
+    const gEsc=esc(g).replace(/'/g,"\\'");
+    h+='<div style="margin-bottom:6px"><div class="gh'+(cl?' cl':'')+'" onclick="collapsed[\''+gEsc+'\']=!collapsed[\''+gEsc+'\'];renderProducts()"><span class="arr">▼</span><span style="flex:1;font-size:14px;font-weight:600">'+esc(g)+'</span><span style="font-size:11px;color:'+(hasLow?'var(--og)':'var(--tx2)')+';margin-right:8px">库存 '+stk+'</span><span style="font-size:11px;color:var(--ac)">售出 '+sld+'</span></div>';
+    if(!cl){h+='<div style="padding-left:8px">';items.forEach(p=>h+=pCard(p));h+='</div>'}
+    h+='</div>';
+  });
+  ungrouped.forEach(p=>h+=pCard(p));
+  el.innerHTML=h;
+}
+
+function pCard(p){
+  const isLow=p.stock>0&&p.stock<=3,isOut=p.stock===0,inC=cart[p.id]||0;
+  const cls=isOut?'card out':isLow?'card low':'card';
+  let tags='';if(isOut)tags='<span class="tag out">售罄</span>';else if(isLow)tags='<span class="tag low">库存紧张</span>';
+  const sty=isOut?'background:rgba(248,113,113,.08);border-color:rgba(248,113,113,.3);color:#f87171':isLow?'background:rgba(251,146,60,.08);border-color:rgba(251,146,60,.3);color:#fb923c':'';
+  let ctrl='';
+  if(cartOn){
+    if(inC>0)ctrl+='<button class="sb mi" onclick="rmFromCart('+p.id+')">−</button>';
+    ctrl+='<span style="min-width:28px;text-align:center;font-size:16px;font-weight:700;color:'+(inC?'var(--ac)':'#555')+'">'+inC+'</span>';
+    ctrl+='<button class="sb pl'+(isOut?' dis':'')+'" onclick="addToCart('+p.id+')">+</button>';
+  }else{
+    ctrl='<button class="sb mi" onclick="unsell('+p.id+')">−</button><span style="min-width:28px;text-align:center;font-size:16px;font-weight:700;color:var(--ac)">'+p.sold+'</span><button class="sb pl'+(isOut?' dis':'')+'" onclick="sell('+p.id+')">+</button>';
+  }
+  return '<div class="'+cls+'"><div style="display:flex;align-items:center;margin-bottom:8px"><span style="flex:1;font-size:14px;font-weight:500;'+(isOut?'opacity:.5':'')+'">'+esc(p.name)+'</span>'+tags+'<span style="font-size:14px;color:var(--yw);font-weight:700;margin-right:6px">¥'+p.price+'</span><button class="xb" onclick="delProduct('+p.id+')">✕</button></div><div style="display:flex;align-items:center;gap:8px"><div style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--tx2)"><span>库存</span><input class="ipt" type="number" value="'+p.stock+'" onchange="updStock('+p.id+',this)" min="0" style="width:50px;text-align:center;padding:4px;font-size:13px;'+sty+'"></div><div style="margin-left:auto;display:flex;align-items:center;gap:5px">'+ctrl+'</div></div></div>';
+}
+
+function renderLogs(){
+  $('logCnt').textContent=D.logs.length;
+  if(!D.logs.length){$('logList').innerHTML='<div class="empty">暂无记录</div>';return}
+  $('logList').innerHTML=D.logs.map(l=>{
+    const isSell=l.action==='sell';
+    return '<div class="li"><span style="color:var(--tx2);min-width:54px;font-size:11px">'+fmtT(l.time)+'</span><span style="flex:1">'+esc(l.name)+'</span><span style="font-weight:700;min-width:24px;text-align:center;color:'+(isSell?'var(--gn)':'var(--rd)')+'">'+(isSell?'+1':'-1')+'</span><span style="color:var(--yw);min-width:50px;text-align:right;font-size:11px">'+(isSell?'+':'-')+'¥'+l.price+'</span></div>';
+  }).join('');
+}
+
+function renderDisc(){
+  if(!D.discounts.length){$('discList').innerHTML='<div class="empty">暂无优惠记录</div>';return}
+  $('discList').innerHTML=D.discounts.map(d=>{
+    return '<div class="li"><span style="flex:1">'+esc(d.desc)+'</span><span style="color:var(--og);font-weight:700;margin:0 8px">-¥'+d.amount+'</span><span style="color:var(--tx2);font-size:10px">'+fmtTs(d.time)+'</span><button class="xb" onclick="rmDisc('+d.id+')" style="width:22px;height:22px;font-size:11px;margin-left:4px">✕</button></div>';
+  }).join('');
+}
+
+function updateStats(){
+  const sold=D.products.reduce((s,p)=>s+p.sold,0);
+  const gross=D.logs.reduce((s,l)=>s+(l.action==='sell'?l.price:-l.price),0);
+  const disc=D.discounts.reduce((s,d)=>s+d.amount,0);
+  $('sSold').textContent=sold;
+  $('sDisc').textContent='-¥'+disc;
+  $('sRev').textContent='¥'+(gross-disc);
+}
+function renderAll(){renderProducts();renderLogs();renderDisc();updateStats();refreshGroups()}
+
+// ==================== XLSX IMPORT ====================
+function findCol(cols,kws){
+  for(const k of kws){const f=cols.find(c=>c.trim().toLowerCase()===k.toLowerCase());if(f)return f}
+  for(const k of kws){const f=cols.find(c=>c.toLowerCase().includes(k.toLowerCase()));if(f)return f}
+  return null;
+}
+
+function importXlsx(event){
+  const file=event.target.files[0];if(!file)return;
+  event.target.value='';
+  if(typeof XLSX==='undefined'){toast('Excel组件未加载，需要联网才能使用此功能');return}
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const data=new Uint8Array(e.target.result);
+      const wb=XLSX.read(data,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const rows=XLSX.utils.sheet_to_json(ws,{defval:''});
+      if(!rows.length){toast('表格为空');return}
+
+      const cols=Object.keys(rows[0]);
+      const nameCol=findCol(cols,['商品名','商品名称','名称','品名','name','商品','货品名','货品'])||cols[0];
+      const priceCol=findCol(cols,['单价','价格','售价','price','定价'])||(cols.length>1?cols[1]:null);
+      const stockCol=findCol(cols,['库存','数量','stock','qty','库存数','初始库存']);
+      const groupCol=findCol(cols,['分组','组','类别','group','category','系列','类型']);
+
+      if(!priceCol){toast('未找到价格列');return}
+
+      pendingXlsx=rows.map(r=>({
+        name:String(r[nameCol]||'').trim(),
+        price:parseFloat(r[priceCol])||0,
+        stock:stockCol?(parseInt(r[stockCol])||0):0,
+        group:groupCol?String(r[groupCol]||'').trim():''
+      })).filter(x=>x.name&&x.price>0);
+
+      if(!pendingXlsx.length){toast('没有有效商品（需要名称+价格>0）');return}
+
+      // Build preview
+      let h='<div style="font-size:12px;color:var(--tx2);margin-bottom:8px">列映射：名称→<b style="color:var(--tx)">'+esc(nameCol)+'</b> | 价格→<b style="color:var(--tx)">'+esc(priceCol)+'</b>';
+      if(stockCol)h+=' | 库存→<b style="color:var(--tx)">'+esc(stockCol)+'</b>';
+      if(groupCol)h+=' | 分组→<b style="color:var(--tx)">'+esc(groupCol)+'</b>';
+      h+='</div>';
+      h+='<table class="ptable"><tr><th>商品名</th><th>单价</th><th>库存</th>';
+      if(groupCol)h+='<th>分组</th>';
+      h+='</tr>';
+      pendingXlsx.slice(0,30).forEach(p=>{
+        h+='<tr><td>'+esc(p.name)+'</td><td style="color:var(--yw)">¥'+p.price+'</td><td>'+p.stock+'</td>';
+        if(groupCol)h+='<td style="color:var(--tx2)">'+esc(p.group)+'</td>';
+        h+='</tr>';
+      });
+      if(pendingXlsx.length>30)h+='<tr><td colspan="'+(groupCol?4:3)+'" style="text-align:center;color:var(--tx2)">...还有 '+(pendingXlsx.length-30)+' 件</td></tr>';
+      h+='</table>';
+      h+='<div style="font-size:13px;color:var(--ac);margin-top:8px;font-weight:500">共 '+pendingXlsx.length+' 件商品待导入</div>';
+
+      $('xlsxPreview').innerHTML=h;
+      $('xlsxModal').classList.remove('hidden');
+    }catch(err){
+      console.error(err);
+      toast('文件解析失败: '+err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function closeModal(){$('xlsxModal').classList.add('hidden');pendingXlsx=null}
+function confirmImport(){
+  if(!pendingXlsx||!pendingXlsx.length)return;
+  let n=0;
+  pendingXlsx.forEach(p=>{
+    D.products.push({id:Date.now()+(n++),name:p.name,price:p.price,stock:p.stock,sold:0,group:p.group});
+    if(p.group&&!D.groups.includes(p.group))D.groups.push(p.group);
+  });
+  save();closeModal();renderAll();
+  toast('已导入 '+n+' 件商品');
+}
+
+// ==================== XLSX EXPORT REPORT ====================
+function exportReport(){
+  if(typeof XLSX==='undefined'){toast('Excel组件未加载，需要联网才能使用此功能');return}
+  if(!D.products.length&&!D.logs.length){toast('暂无数据');return}
+  const wb=XLSX.utils.book_new();
+
+  // Sheet 1: 商品汇总
+  const summary=D.products.map(p=>({'分组':p.group||'—','商品名称':p.name,'单价':p.price,'初始库存':p.stock+p.sold,'剩余库存':p.stock,'售出数量':p.sold,'销售额':p.price*p.sold}));
+  const tSold=D.products.reduce((s,p)=>s+p.sold,0);
+  const tGross=D.products.reduce((s,p)=>s+p.price*p.sold,0);
+  const tDisc=D.discounts.reduce((s,d)=>s+d.amount,0);
+  summary.push({'分组':'','商品名称':'','单价':'','初始库存':'','剩余库存':'','售出数量':'','销售额':''});
+  summary.push({'分组':'合计','商品名称':'','单价':'','初始库存':'','剩余库存':'','售出数量':tSold,'销售额':tGross});
+  summary.push({'分组':'优惠合计','商品名称':'','单价':'','初始库存':'','剩余库存':'','售出数量':'','销售额':-tDisc});
+  summary.push({'分组':'净收入','商品名称':'','单价':'','初始库存':'','剩余库存':'','售出数量':'','销售额':tGross-tDisc});
+  const ws1=XLSX.utils.json_to_sheet(summary);
+  ws1['!cols']=[{wch:10},{wch:20},{wch:8},{wch:10},{wch:10},{wch:10},{wch:12}];
+  XLSX.utils.book_append_sheet(wb,ws1,'商品汇总');
+
+  // Sheet 2: 售出明细
+  if(D.logs.length){
+    const logD=D.logs.map(l=>{const t=new Date(l.time);return{'日期':t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0'),'时间':fmtT(l.time),'商品名称':l.name,'类型':l.action==='sell'?'售出':'退货','金额':l.action==='sell'?l.price:-l.price}});
+    logD.push({'日期':'','时间':'','商品名称':'','类型':'合计','金额':D.logs.reduce((s,l)=>s+(l.action==='sell'?l.price:-l.price),0)});
+    const ws2=XLSX.utils.json_to_sheet(logD);
+    ws2['!cols']=[{wch:12},{wch:10},{wch:20},{wch:8},{wch:10}];
+    XLSX.utils.book_append_sheet(wb,ws2,'售出明细');
+  }
+
+  // Sheet 3: 优惠记录
+  if(D.discounts.length){
+    const dD=D.discounts.map(d=>({'时间':fmtTs(d.time),'说明':d.desc,'金额':-d.amount}));
+    dD.push({'时间':'','说明':'合计','金额':-tDisc});
+    const ws3=XLSX.utils.json_to_sheet(dD);
+    ws3['!cols']=[{wch:8},{wch:25},{wch:10}];
+    XLSX.utils.book_append_sheet(wb,ws3,'优惠记录');
+  }
+
+  const now=new Date();
+  XLSX.writeFile(wb,'展会销售报表_'+now.getFullYear()+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0')+'.xlsx');
+  toast('报表已导出');
+}
+
+// ==================== INIT ====================
+load();renderAll();
+</script>
+</body>
+</html>
