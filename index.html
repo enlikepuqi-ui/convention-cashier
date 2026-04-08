@@ -20,7 +20,9 @@
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Noto Sans SC',system-ui,sans-serif;background:var(--bg);color:var(--tx);min-height:100vh;-webkit-tap-highlight-color:transparent}
 input,button,select{font-family:inherit}
-.app{max-width:640px;margin:0 auto;padding:12px 14px 100px}
+input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+input[type=number]{-moz-appearance:textfield}
+.app{max-width:640px;margin:0 auto;padding:24px 14px 100px}
 
 /* header */
 .hdr{display:flex;align-items:center;justify-content:space-between;padding-bottom:10px;border-bottom:1px solid var(--bd);margin-bottom:12px}
